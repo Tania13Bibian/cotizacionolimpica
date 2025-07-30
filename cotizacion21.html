@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>OLIMPICA - Cotizador de servicios</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Merriweather&display=swap" rel="stylesheet" />
+  <style>
+    body {
+      background-color: #f3f3f3;
+      font-family: 'Merriweather', serif;
+      margin: 0;
+      padding: 20px;
+    }
+    h1 {
+      font-family: 'Cinzel', serif;
+      font-size: 40px;
+      text-align: center;
+      color: #1a1a1a;
+      margin-bottom: 10px;
+    }
+    .container {
+      background-color: #fff;
+      padding: 25px;
+      max-width: 800px;
+      margin: 0 auto;
+      border-radius: 10px;
+      box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
+    }
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+    }
+    input {
+      width: 100%;
+      padding: 7px;
+      margin-top: 4px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+      box-sizing: border-box;
+    }
+    .section-title {
+      border-bottom: 2px solid #a0522d;
+      margin-top: 25px;
+      font-weight: bold;
+      color: #a0522d;
+      font-size: 18px;
+    }
+    table {
+      width: 100%;
+      margin-top: 15px;
+      border-collapse: collapse;
+    }
+    table, th, td {
+      border: 1px solid #999;
+    }
+    th, td {
+      padding: 8px;
+      text-align: center;
+    }
+    .totals td {
+      font-weight: bold;
+    }
+    .btn {
+      padding: 10px 15px;
+      margin-top: 15px;
+      background-color: #a0522d;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+    .btn:disabled {
+      background-color: #999;
+      cursor: not-allowed;
+    }
+    footer {
+      text-align: center;
+      margin-top: 30px;
+      font-size: 12px;
+      color: #555;
+    }
+    #logoCotizacion {
+      height: 80px;
+      display: block;
+      margin: 0 auto 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1>OLIMPICA</h1>
+  <img id="logoCotizacion" src="https://i.imgur.com/Xm9WRoV.png" alt="Logo OLIMPICA" />
+
+  <div class="container" id="cotizador">
+    <div class="section-title">Cotización</div>
+
+    <label>Folio</label>
+    <input type="number" id="folio" placeholder="Ej. 1023" />
+
+    <label>Administrador</label>
+    <input type="text" value="Leonardo de Gaona" id="admin" />
+
+    <label>Fecha</label>
+    <input type="date" id="fecha" />
+    <label>Cliente</label>
+    <input type="text" id="cliente" placeholder="Nombre del cliente" />
+
+    <label>Dirección</label>
+    <input type="text" value="Pachuca HGO" id="direccion" />
+
+    <div class="section-title">Productos</div>
+    <label>Producto</label>
+    <input type="text" id="producto" placeholder="Nombre del producto" />
+    <label>Precio Unitario ($)</label>
+    <input type="number" id="precio" placeholder="0.00" min="0" step="0.01" />
+    <label>Cantidad</label>
+    <input type="number" id="cantidad" value="1" min="1" step="1" />
+
+    <button class="btn" id="btnAgregar" disabled>Agregar producto</button>
+    <button class="btn" id="btnEliminar" disabled>Eliminar último</button>
+
+    <table id="tablaProductos">
+      <thead>
+        <tr>
+          <th>Producto</th>
+          <th>Cantidad</th>
+          <th>Precio Unitario</th>
+          <th>Total</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+      <tfoot class="totals">
+        <tr><td colspan="3">Subtotal:</td><td id="subtotal">$0.00</td></tr>
+        <tr><td colspan="3">+ 16% de IVA:</td><td id="iva">$0.00</td></tr>
+        <tr><td colspan="3">Total:</td><td id="total">$0.00</td></tr>
+      </tfoot>
+    </table>
+
+    <button class="btn" id="btnPDF" disabled>Descargar PDF</button>
+  </div>
+
+  <footer>© 2025 OLIMPICA - Cotizador de servicios</footer>
+
+  <script>
+    let folioActual = 1000;
+    let subtotal = 0;
+    document.getElementById('folio').value = folioActual;
+    document.getElementById('fecha').value = new Date().toLocaleDateString();
+
+    const tablaBody = document.querySelector('#tablaProductos tbody');
+    const btnAgregar = document.getElementById('btnAgregar');
+    const btnEliminar = document.getElementById('btnEliminar');
+    const btnPDF = document.getElementById('btnPDF');
+
+    ['producto', 'precio', 'cantidad'].forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        const producto = document.getElementById('producto').value.trim();
+        const precio = parseFloat(document.getElementById('precio').value);
+        const cantidad = parseInt(document.getElementById('cantidad').value);
+        btnAgregar.disabled = !(producto && !isNaN(precio) && precio > 0 && !isNaN(cantidad) && cantidad > 0);
+      });
+    });
+
+    btnAgregar.addEventListener('click', () => {
+      const producto = document.getElementById('producto').value.trim();
+      const precio = parseFloat(document.getElementById('precio').value);
+      const cantidad = parseInt(document.getElementById('cantidad').value);
+      const total = precio * cantidad;
+      subtotal += total;
+
+      const row = tablaBody.insertRow();
+      row.innerHTML = `
+        <td>${producto}</td>
+        <td>${cantidad}</td>
+        <td>$${precio.toFixed(2)}</td>
+        <td>$${total.toFixed(2)}</td>
+      `;
+
+      actualizarTotales();
+      limpiarCampos();
+      btnEliminar.disabled = false;
+      btnPDF.disabled = false;
+    });
+
+    btnEliminar.addEventListener('click', () => {
+      if (tablaBody.rows.length > 0) {
+        const ultimaFila = tablaBody.rows[tablaBody.rows.length - 1];
+        const total = parseFloat(ultimaFila.cells[3].innerText.replace('$', ''));
+        subtotal -= total;
+        tablaBody.deleteRow(tablaBody.rows.length - 1);
+        actualizarTotales();
+        if (tablaBody.rows.length === 0) {
+          btnEliminar.disabled = true;
+          btnPDF.disabled = true;
+        }
+      }
+    });
+
+    function actualizarTotales() {
+      const iva = subtotal * 0.16;
+      const total = subtotal + iva;
+      document.getElementById('subtotal').innerText = `$${subtotal.toFixed(2)}`;
+      document.getElementById('iva').innerText = `$${iva.toFixed(2)}`;
+      document.getElementById('total').innerText = `$${total.toFixed(2)}`;
+    }
+
+    function limpiarCampos() {
+      document.getElementById('producto').value = '';
+      document.getElementById('precio').value = '';
+      document.getElementById('cantidad').value = 1;
+      btnAgregar.disabled = true;
+    }
+
+    btnPDF.addEventListener('click', () => {
+      const cliente = document.getElementById('cliente').value.trim();
+      if (!cliente) {
+        alert("Por favor, ingresa el nombre del cliente.");
+        return;
+      }
+
+      const folio = document.getElementById('folio').value;
+      const admin = document.getElementById('admin').value;
+      const fecha = document.getElementById('fecha').value;
+      const direccion = document.getElementById('direccion').value;
+      const subtotalTxt = document.getElementById('subtotal').innerText;
+      const ivaTxt = document.getElementById('iva').innerText;
+      const totalTxt = document.getElementById('total').innerText;
+
+      let productosHTML = '';
+      document.querySelectorAll('#tablaProductos tbody tr').forEach(row => {
+        const cols = row.querySelectorAll('td');
+        productosHTML += `
+          <tr>
+            <td style="border: 1px solid #999; padding: 8px; text-align: left;">${cols[0].innerText}</td>
+            <td style="border: 1px solid #999; padding: 8px; text-align: center;">${cols[1].innerText}</td>
+            <td style="border: 1px solid #999; padding: 8px; text-align: right;">${cols[2].innerText}</td>
+            <td style="border: 1px solid #999; padding: 8px; text-align: right;">${cols[3].innerText}</td>
+          </tr>`;
+      });
+
+      const logoSrc = document.querySelector('#logoCotizacion')?.src || '';
+
+ const contenido = `
+  <div style="width: 7.5in; margin: 0 auto; font-family: 'Merriweather', serif; padding: 30px; color: #333; box-sizing: border-box;">
+    <table style="width: 100%; border-bottom: 2px solid #a0522d; margin-bottom: 20px;">
+      <tr>
+        <td style="width: 60%;">
+          <img src="${logoSrc}" alt="Logo OLIMPICA" style="height: 70px;" />
+          <h2 style="font-family: 'Cinzel', serif; margin: 5px 0 0; color: #a0522d;">OLIMPICA</h2>
+          <p style="margin: 2px 0;">Pachuca, Hidalgo</p>
+        </td>
+        <td style="text-align: right; vertical-align: top;">
+          <h3 style="margin: 0; color: #a0522d;">COTIZACIÓN</h3>
+          <p><strong>Folio:</strong> ${folio}</p>
+          <p><strong>Fecha:</strong> ${fecha}</p>
+        </td>
+      </tr>
+    </table>
+
+    <table style="width: 100%; margin-bottom: 20px; font-size: 12px;">
+      <tr>
+        <td style="width: 50%; padding: 5px; background: #f7f7f7;"><strong>Administrador:</strong><br>${admin}</td>
+        <td style="width: 50%; padding: 5px; background: #f7f7f7;"><strong>Cliente:</strong><br>${cliente}</td>
+      </tr>
+      <tr>
+        <td colspan="2" style="padding: 5px;"><strong>Dirección:</strong> ${direccion}</td>
+      </tr>
+    </table>
+
+    <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+      <thead>
+        <tr style="background-color: #a0522d; color: white;">
+          <th style="border: 1px solid #ccc; padding: 6px;">Producto</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Cantidad</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Precio Unitario</th>
+          <th style="border: 1px solid #ccc; padding: 6px;">Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${productosHTML}
+      </tbody>
+    </table>
+    <table style="width: 100%; margin-top: 10px; font-size: 13px;">
+      <tr>
+        <td style="text-align: right; padding: 8px;"><strong>Subtotal:</strong></td>
+        <td style="text-align: right; padding: 8px;">${subtotalTxt}</td>
+      </tr>
+      <tr>
+        <td style="text-align: right; padding: 8px;"><strong>IVA (16%):</strong></td>
+        <td style="text-align: right; padding: 8px;">${ivaTxt}</td>
+      </tr>
+      <tr>
+        <td style="text-align: right; padding: 8px; font-size: 15px;"><strong>Total:</strong></td>
+        <td style="text-align: right; padding: 8px; font-size: 15px;"><strong>${totalTxt}</strong></td>
+      </tr>
+    </table>
+
+    <p style="margin-top: 40px; font-size: 10px; color: #777; text-align: center;">
+      © 2025 OLIMPICA . Todos los derechos reservados.
+    </p>
+  </div>
+`;
+      const opt = {
+        margin: 0,
+        filename: `Cotizacion_Olimpica_${folio}.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          scrollY: 0,
+          scrollX: 0,
+          windowWidth: document.body.scrollWidth,
+          windowHeight: document.body.scrollHeight
+        },
+        jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' }
+      };
+
+      const div = document.createElement('div');
+      div.innerHTML = contenido;
+      document.body.appendChild(div);
+
+      html2pdf().set(opt).from(div).save().then(() => {
+        document.body.removeChild(div);
+      });
+    });
+  </script>
+</body>
+</html>
